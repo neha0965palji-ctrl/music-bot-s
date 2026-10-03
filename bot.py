@@ -90,10 +90,10 @@ async def search_and_download(query):
             "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         }
         
-       if os.path.exists(cookie_path):
+           if os.path.exists(cookie_path):
             opts["cookiefile"]     = cookie_path
 
-        with yt_dlp.YoutubeDL(opts) as ydl:
+           with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(
                 f"ytsearch1:{query}",
                 download=True
