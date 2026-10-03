@@ -91,10 +91,9 @@ async def search_and_download(query):
         }
         
        if os.path.exists(cookie_path):
-            opts["cookiefile"] = cookie_path     
-         
+            opts["cookiefile"]     = cookie_path
 
-       with yt_dlp.YoutubeDL(opts) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(
                 f"ytsearch1:{query}",
                 download=True
@@ -102,7 +101,6 @@ async def search_and_download(query):
 
             if not info or not info.get("entries"):
                 return None
-
             video = info["entries"][0]
             video_id = video["id"]
             title = video.get("title", query)
