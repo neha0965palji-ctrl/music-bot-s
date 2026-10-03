@@ -69,7 +69,6 @@ def cleanup_downloads():
         except Exception:
             pass
 
-
 async def search_and_download(query):
     import yt_dlp
     import os
@@ -98,15 +97,19 @@ async def search_and_download(query):
             download=True
         )
 
-        if not info or not info.get("entries"):
-            return None
+    if not info or not info.get("entries"):
+        return None
 
-        video = info["entries"][0]
-        video_id = video["id"]
-        title = video.get("title", query)
+    video = info["entries"][0]
+    video_id = video["id"]
+    title = video.get("title", query)
 
+    files = glob.glob(
+        os.path.join(DOWNLOAD_DIR, f"{video_id}.*")
+    )
 
-async def play_song(chat_id, song):
+    if not files:
+        return None
     current_song[chat_id] = song
     await call_py.play(
         chat_id,
