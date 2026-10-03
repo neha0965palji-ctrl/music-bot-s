@@ -72,52 +72,38 @@ def cleanup_downloads():
 
 async def search_and_download(query):
     import yt_dlp
+    import os
+    import glob
+    import shutil
 
-    def download():
-        import shutil
+    cookie_path = os.path.join(DOWNLOAD_DIR, "cookies.txt")
 
-        cookie_path = os.path.join(DOWNLOAD_DIR, "cookies.txt")
+    if os.path.exists("/etc/secrets/cookies.txt"):
+        shutil.copyfile("/etc/secrets/cookies.txt", cookie_path)
 
-        if os.path.exists("/etc/secrets/cookies.txt"):
-            shutil.copyfile("/etc/secrets/cookies.txt", cookie_path)
+    opts = {
+        "format": "bestaudio/best",
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
+    }
 
-        opts = {
-            "format": "bestaudio/best",
-            "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
-         
-            "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
-        }
-        
-        if os.path.exists(cookie_path):
-            opts["cookiefile"]     = cookie_path
+    if os.path.exists(cookie_path):
+        opts["cookiefile"] = cookie_path
 
-         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(
-                f"ytsearch1:{query}",
-                download=True
-            )
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(
+            f"ytsearch1:{query}",
+            download=True
+        )
 
-            if not info or not info.get("entries"):
-                return None
-            video = info["entries"][0]
-            video_id = video["id"]
-            title = video.get("title", query)
+        if not info or not info.get("entries"):
+            return None
 
-            files = glob.glob(
-                os.path.join(DOWNLOAD_DIR, f"{video_id}.*")
-            )
-
-            if not files:
-                return None
-
-            return {
-                "title": title,
-                "file": files[0]
-            }
-
-    return await asyncio.to_thread(download)
+        video = info["entries"][0]
+        video_id = video["id"]
+        title = video.get("title", query)
 
 
 async def play_song(chat_id, song):
