@@ -74,14 +74,25 @@ async def search_and_download(query):
     import yt_dlp
 
     def download():
+        import shutil
+
+        cookie_path = os.path.join(DOWNLOAD_DIR, "cookies.txt")
+
+        if os.path.exists("/etc/secrets/cookies.txt"):
+            shutil.copyfile("/etc/secrets/cookies.txt", cookie_path)
+
         opts = {
             "format": "bestaudio/best",
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
-"cookiefile": "/etc/secrets/cookies.txt",
+         
             "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         }
+        
+      if os.path.exists(cookie_path):
+            opts["cookiefile"] = cookie_path     
+         
 
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(
