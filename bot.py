@@ -79,6 +79,7 @@ async def search_and_download(query):
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+"cookiefile": "/etc/secrets/cookies.txt",
             "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         }
 
