@@ -19,12 +19,21 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
-user_app = Client(
-    "music_assistant",
-    api_id=API_ID,
-    api_hash=API_HASH
-)
+SESSION_STRING = os.getenv("SESSION_STRING")
 
+if SESSION_STRING:
+    user_app = Client(
+        "music_assistant",
+        api_id=API_ID,
+        api_hash=API_HASH,
+        session_string=SESSION_STRING
+    )
+else:
+    user_app = Client(
+        "music_assistant",
+        api_id=API_ID,
+        api_hash=API_HASH
+    )
 call_py = PyTgCalls(user_app)
 
 queues = {}
