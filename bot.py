@@ -81,6 +81,11 @@ async def search_and_download(query):
         shutil.copyfile("/etc/secrets/cookies.txt", cookie_path)
 
     opts = {
+       "js_runtimes": {
+    "deno": {
+        "executable": "/opt/render/.deno/bin/deno"
+    }
+},
         "extractor_args": {
             "youtube": {
                 "player_client": ["default", "web_embedded"],
