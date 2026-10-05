@@ -109,7 +109,14 @@ async def search_and_download(query):
         "remote_components": {
             "ejs:npm"
         },
-
+"youtube": {
+    "player_client": [
+        "mweb"
+    ],
+    "player_skip": [
+        "webpage"
+    ]
+},
       "youtubepot-bgutilscript": {
     "server_home": os.path.join(
         os.getcwd(),
