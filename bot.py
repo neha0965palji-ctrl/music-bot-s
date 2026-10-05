@@ -98,11 +98,7 @@ async def search_and_download(query):
             "%(id)s.%(ext)s"
         ),
 
-  "js_runtimes": {
-    "deno": {
-        "executable": "/opt/render/.deno/bin/deno"
-    }
-},
+
         "remote_components": {
             "ejs:npm"
         },
