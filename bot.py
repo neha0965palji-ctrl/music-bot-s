@@ -98,12 +98,11 @@ async def search_and_download(query):
             "%(id)s.%(ext)s"
         ),
 
-      "js_runtimes": {
+   "js_runtimes": {
     "deno": {
-        "executable": "/opt/render/.deno/bin/deno"
+        "path": "/opt/render/.deno/bin/deno"
     }
 },
-
         "remote_components": {
             "ejs:npm"
         },
