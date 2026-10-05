@@ -74,7 +74,6 @@ def cleanup_downloads():
         except Exception:
             pass
 
-
 async def search_and_download(query):
     import os
     import json
