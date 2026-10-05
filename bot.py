@@ -99,7 +99,7 @@ async def search_and_download(query):
         ),"cookiefile": cookie_path,
         
 "js_runtimes": {
-    "deno": {}
+    "deno": "/opt/render/.deno/bin/deno"
 },
 
         "remote_components": {
