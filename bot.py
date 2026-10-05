@@ -97,16 +97,16 @@ opts = {
         }
     }
 if os.path.exists(cookie_path):
-    opts["cookiefile"] = cookie_path
+        opts["cookiefile"] = cookie_path
 
-with yt_dlp.YoutubeDL(opts) as ydl:
-    info = ydl.extract_info(
-        f"ytsearch1:{query}",
-        download=True
-    )
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(
+            f"ytsearch1:{query}",
+            download=True
+        )
 
     if not info or not info.get("entries"):
-    return None
+        return None
 
     video = info["entries"][0]
     video_id = video["id"]
@@ -118,7 +118,6 @@ with yt_dlp.YoutubeDL(opts) as ydl:
 
     if not files:
         return None
-    current_song[chat_id] = song
     await call_py.play(
         chat_id,
         MediaStream(song["file"], AudioQuality.HIGH)
