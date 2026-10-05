@@ -1,5 +1,5 @@
+```python
 import os
-import asyncio
 import glob
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -69,37 +69,55 @@ def cleanup_downloads():
         except Exception:
             pass
 
+
 async def search_and_download(query):
     import yt_dlp
-    import os
-    import glob
     import shutil
 
-    cookie_path = os.path.join(DOWNLOAD_DIR, "cookies.txt")
+    cookie_path = os.path.join(
+        DOWNLOAD_DIR,
+        "cookies.txt"
+    )
 
     if os.path.exists("/etc/secrets/cookies.txt"):
-        shutil.copyfile("/etc/secrets/cookies.txt", cookie_path)
+        shutil.copyfile(
+            "/etc/secrets/cookies.txt",
+            cookie_path
+        )
 
-opts = {
+    opts = {
         "verbose": True,
+
+        "outtmpl": os.path.join(
+            DOWNLOAD_DIR,
+            "%(id)s.%(ext)s"
+        ),
 
         "js_runtimes": {
             "deno": {}
         },
 
-        "remote_components": {"ejs:npm"},
+        "remote_components": {
+            "ejs:npm"
+        },
 
         "extractor_args": {
             "youtube": {
-                "player_client": ["default", "web_embedded"],
-                "player_skip": ["webpage"]
+                "player_client": [
+                    "default",
+                    "web_embedded"
+                ],
+                "player_skip": [
+                    "webpage"
+                ]
             }
         }
     }
-if os.path.exists(cookie_path):
+
+    if os.path.exists(cookie_path):
         opts["cookiefile"] = cookie_path
 
-with yt_dlp.YoutubeDL(opts) as ydl:
+    with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(
             f"ytsearch1:{query}",
             download=True
@@ -109,18 +127,41 @@ with yt_dlp.YoutubeDL(opts) as ydl:
         return None
 
     video = info["entries"][0]
+
     video_id = video["id"]
     title = video.get("title", query)
 
-    files = glob.glob(
-        os.path.join(DOWNLOAD_DIR, f"{video_id}.*")
-    )
+    files = [
+        f
+        for f in glob.glob(
+            os.path.join(
+                DOWNLOAD_DIR,
+                f"{video_id}.*"
+            )
+        )
+        if not f.endswith(".part")
+        and not f.endswith(".ytdl")
+    ]
 
     if not files:
         return None
+
+    return {
+        "title": title,
+        "file": files[0],
+        "id": video_id
+    }
+
+
+async def play_song(chat_id, song):
+    current_song[chat_id] = song
+
     await call_py.play(
         chat_id,
-        MediaStream(song["file"], AudioQuality.HIGH)
+        MediaStream(
+            song["file"],
+            AudioQuality.HIGH
+        )
     )
 
 
@@ -156,37 +197,58 @@ async def play_music(_, message):
         song = await search_and_download(query)
 
         if not song:
-            await message.reply_text("❌ Song nahi mila.")
+            await message.reply_text(
+                "❌ Song nahi mila."
+            )
             return
 
         chat_id = message.chat.id
 
         if chat_id in current_song:
-            queues.setdefault(chat_id, []).append(song)
+            queues.setdefault(
+                chat_id,
+                []
+            ).append(song)
 
             await message.reply_text(
-                f"➕ Queue me add ho gaya:\n{song['title']}"
+                f"➕ Queue me add ho gaya:\n"
+                f"{song['title']}"
             )
             return
 
-        await play_song(chat_id, song)
+        await play_song(
+            chat_id,
+            song
+        )
 
         await message.reply_text(
-            f"▶️ Playing:\n{song['title']}"
+            f"▶️ Playing:\n"
+            f"{song['title']}"
         )
 
     except Exception as e:
-        print("PLAY ERROR:", repr(e))
+        print(
+            "PLAY ERROR:",
+            repr(e)
+        )
+
         await message.reply_text(
-            f"❌ Play error:\n{type(e).__name__}: {e}"
+            f"❌ Play error:\n"
+            f"{type(e).__name__}: {e}"
         )
 
 
 @app.on_message(filters.command("pause"))
 async def pause_music(_, message):
     try:
-        await call_py.pause(message.chat.id)
-        await message.reply_text("⏸ Paused")
+        await call_py.pause(
+            message.chat.id
+        )
+
+        await message.reply_text(
+            "⏸ Paused"
+        )
+
     except Exception as e:
         await message.reply_text(
             f"❌ Pause error: {e}"
@@ -196,8 +258,14 @@ async def pause_music(_, message):
 @app.on_message(filters.command("resume"))
 async def resume_music(_, message):
     try:
-        await call_py.resume(message.chat.id)
-        await message.reply_text("▶️ Resumed")
+        await call_py.resume(
+            message.chat.id
+        )
+
+        await message.reply_text(
+            "▶️ Resumed"
+        )
+
     except Exception as e:
         await message.reply_text(
             f"❌ Resume error: {e}"
@@ -209,18 +277,30 @@ async def skip_music(_, message):
     chat_id = message.chat.id
 
     try:
-        await call_py.leave_call(chat_id)
+        await call_py.leave_call(
+            chat_id
+        )
 
-        current_song.pop(chat_id, None)
+        current_song.pop(
+            chat_id,
+            None
+        )
 
         if queues.get(chat_id):
-            next_song = queues[chat_id].pop(0)
+            next_song = queues[
+                chat_id
+            ].pop(0)
 
-            await play_song(chat_id, next_song)
+            await play_song(
+                chat_id,
+                next_song
+            )
 
             await message.reply_text(
-                f"⏭ Playing next:\n{next_song['title']}"
+                f"⏭ Playing next:\n"
+                f"{next_song['title']}"
             )
+
         else:
             await message.reply_text(
                 "⏭ Queue khali hai."
@@ -237,12 +317,21 @@ async def stop_music(_, message):
     chat_id = message.chat.id
 
     try:
-        await call_py.leave_call(chat_id)
+        await call_py.leave_call(
+            chat_id
+        )
     except Exception:
         pass
 
-    current_song.pop(chat_id, None)
-    queues.pop(chat_id, None)
+    current_song.pop(
+        chat_id,
+        None
+    )
+
+    queues.pop(
+        chat_id,
+        None
+    )
 
     cleanup_downloads()
 
@@ -254,11 +343,13 @@ async def stop_music(_, message):
 @app.on_message(filters.command("queue"))
 async def show_queue(_, message):
     chat_id = message.chat.id
+
     items = []
 
     if chat_id in current_song:
         items.append(
-            f"▶️ Now: {current_song[chat_id]['title']}"
+            f"▶️ Now: "
+            f"{current_song[chat_id]['title']}"
         )
 
     for i, song in enumerate(
@@ -275,13 +366,16 @@ async def show_queue(_, message):
         )
     else:
         await message.reply_text(
-            "🎵 Queue:\n\n" + "\n".join(items)
+            "🎵 Queue:\n\n"
+            + "\n".join(items)
         )
 
 
 @app.on_message(filters.command("ping"))
 async def ping(_, message):
-    await message.reply_text("🏓 Pong!")
+    await message.reply_text(
+        "🏓 Pong!"
+    )
 
 
 print("🎵 Music Bot Starting...")
@@ -294,4 +388,6 @@ threading.Thread(
 ).start()
 
 call_py.start()
+
 app.run()
+```
