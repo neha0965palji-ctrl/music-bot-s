@@ -80,7 +80,7 @@ async def search_and_download(query):
     if os.path.exists("/etc/secrets/cookies.txt"):
         shutil.copyfile("/etc/secrets/cookies.txt", cookie_path)
 
- opts = {
+    opts = {
         "extractor_args": {
             "youtube": {
                 "player_client": ["default", "web_embedded"],
