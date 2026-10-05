@@ -2,4 +2,5 @@ pyrogram
 py-tgcalls==2.1.0
 python-dotenv
 yt-dlp[default]
+yt-dlp-getpot-wpc
 tgcrypto
