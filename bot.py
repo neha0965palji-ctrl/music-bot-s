@@ -112,10 +112,10 @@ async def search_and_download(query):
 
         "extractor_args": {
             "youtube": {
-                "player_client": [
-                    "default",
-                    "web_embedded"
-                ],
+               "player_client": [
+    "tv",
+    "web_safari"
+],
                 "player_skip": [
                     "webpage"
                 ]
