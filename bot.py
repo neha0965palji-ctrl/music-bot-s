@@ -80,12 +80,8 @@ async def search_and_download(query):
     if os.path.exists("/etc/secrets/cookies.txt"):
         shutil.copyfile("/etc/secrets/cookies.txt", cookie_path)
 
-    opts = {
-       "js_runtimes": {
-    "deno": {
-       "path": "/opt/render/.deno/bin/deno"
-    }
-},"remote_components": {"ejs:npm"},
+    opts = {    
+"remote_components": {"ejs:npm"},
         
         "extractor_args": {
             "youtube": {
