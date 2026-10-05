@@ -120,7 +120,7 @@ async def search_and_download(query):
                     "webpage"
                 ]
             }"youtubepot-bgutilscript": {
-    "server_home": os.path.join(
+    "server_home": os.path.join},
         os.getcwd(),
         "bgutil-ytdlp-pot-provider",
         "server"
