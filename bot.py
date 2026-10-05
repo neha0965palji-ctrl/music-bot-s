@@ -58,9 +58,14 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 def start_web_server():
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), HealthHandler)
-    server.serve_forever()
 
+    print(f"🌐 Starting health server on port {port}")
+
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+
+    print(f"✅ Health server started on port {port}")
+
+    server.serve_forever()
 
 def cleanup_downloads():
     for f in glob.glob(os.path.join(DOWNLOAD_DIR, "*")):
