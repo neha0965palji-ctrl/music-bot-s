@@ -77,6 +77,11 @@ def cleanup_downloads():
 
 async def search_and_download(query):
     import yt_dlp
+    import os
+    import shutil
+
+    os.environ["PATH"] = "/opt/render/.deno/bin:" + os.environ.get("PATH", "") "")
+
     import shutil
 
     cookie_path = os.path.join(
