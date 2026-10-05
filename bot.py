@@ -76,92 +76,152 @@ def cleanup_downloads():
 
 
 async def search_and_download(query):
-    import yt_dlp
     import os
-    import shutil
+    import json
+    import urllib.parse
+    import urllib.request
 
-    os.environ["PATH"] = "/opt/render/.deno/bin:" + os.environ.get("PATH", "") 
-
-    import shutil
-
-    cookie_path = os.path.join(
-        DOWNLOAD_DIR,
-        "cookies.txt"
-    )
-
-    if os.path.exists("/etc/secrets/cookies.txt"):
-        shutil.copyfile(
-            "/etc/secrets/cookies.txt",
-            cookie_path
-        )
-
-    opts = {
-        "verbose": True,
-
-        "outtmpl": os.path.join(
-            DOWNLOAD_DIR,
-            "%(id)s.%(ext)s"
-        ),# "cookiefile": cookie_path,
-        
-"js_runtimes": {
-    "deno": {}
-},
-        "remote_components": {
-            "ejs:npm"
-        },
-"extractor_args": {
-    "youtube": {
-        "player_client": ["mweb"],
-        "player_skip": ["webpage"]
-    },
-    "youtubepot-bgutilscript": {
-        "server_home": os.path.join(
-            os.getcwd(),
-            "bgutil-ytdlp-pot-provider",
-            "server"
-        )
-    }
-},
-   
-}
-   # if os.path.exists(cookie_path):
-   #     opts["cookiefile"] = cookie_path
-
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(
-            f"ytsearch1:{query}",
-            download=True
-        )
-
-    if not info or not info.get("entries"):
-        return None
-
-    video = info["entries"][0]
-
-    video_id = video["id"]
-    title = video.get("title", query)
-
-    files = [
-        f
-        for f in glob.glob(
-            os.path.join(
-                DOWNLOAD_DIR,
-                f"{video_id}.*"
-            )
-        )
-        if not f.endswith(".part")
-        and not f.endswith(".ytdl")
+    PIPED_APIS = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.adminforge.de",
     ]
 
-    if not files:
+    def get_json(url):
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    # Search video
+    search_url = "/search?" + urllib.parse.urlencode({
+        "q": query,
+        "filter": "music"
+    })
+
+    search_data = None
+    api_used = None
+
+    for api in PIPED_APIS:
+        try:
+            search_data = get_json(api + search_url)
+            if search_data and search_data.get("items"):
+                api_used = api
+                break
+        except Exception:
+            continue
+
+    if not search_data or not search_data.get("items"):
+        return None
+
+    video = None
+
+    for item in search_data["items"]:
+        if item.get("type") == "stream":
+            video = item
+            break
+
+    if not video:
+        return None
+
+    video_url = video.get("url", "")
+
+    parsed = urllib.parse.urlparse(video_url)
+    video_id = urllib.parse.parse_qs(parsed.query).get("v", [None])[0]
+
+    if not video_id:
+        return None
+
+    title = video.get("title", query)
+
+    # Get audio streams
+    stream_data = None
+
+    try:
+        stream_data = get_json(
+            f"{api_used}/streams/{video_id}"
+        )
+    except Exception:
+        return None
+
+    if not stream_data:
+        return None
+
+    audio_streams = stream_data.get("audioStreams", [])
+
+    if not audio_streams:
+        return None
+
+    # Prefer higher bitrate audio
+    audio_streams = sorted(
+        audio_streams,
+        key=lambda x: x.get("bitrate", 0),
+        reverse=True
+    )
+
+    audio = audio_streams[0]
+    audio_url = audio.get("url")
+
+    if not audio_url:
+        return None
+
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+    mime = audio.get("mimeType", "")
+
+    if "webm" in mime:
+        ext = ".webm"
+    else:
+        ext = ".m4a"
+
+    output_file = os.path.join(
+        DOWNLOAD_DIR,
+        f"{video_id}{ext}"
+    )
+
+    # Remove old files for this video
+    for old_file in os.listdir(DOWNLOAD_DIR):
+        if old_file.startswith(video_id + "."):
+            try:
+                os.remove(
+                    os.path.join(DOWNLOAD_DIR, old_file)
+                )
+            except Exception:
+                pass
+
+    try:
+        req = urllib.request.Request(
+            audio_url,
+            headers={
+                "User-Agent": "Mozilla/5.0"
+            }
+        )
+
+        with urllib.request.urlopen(req, timeout=60) as response:
+            with open(output_file, "wb") as f:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+
+    except Exception:
+        return None
+
+    if not os.path.exists(output_file):
+        return None
+
+    if os.path.getsize(output_file) < 10000:
         return None
 
     return {
         "title": title,
-        "file": files[0],
+        "audio": output_file,
         "id": video_id
     }
-
 
 async def play_song(chat_id, song):
     current_song[chat_id] = song
