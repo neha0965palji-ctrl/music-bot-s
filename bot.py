@@ -109,22 +109,20 @@ async def search_and_download(query):
         "remote_components": {
             "ejs:npm"
         },
-"youtube": {
-    "player_client": [
-        "mweb"
-    ],
-    "player_skip": [
-        "webpage"
-    ]
-},
-      "youtubepot-bgutilscript": {
-    "server_home": os.path.join(
-        os.getcwd(),
-        "bgutil-ytdlp-pot-provider",
-        "server"
-    )
-},
+"extractor_args": {
+    "youtube": {
+        "player_client": ["mweb"],
+        "player_skip": ["webpage"]
+    },
+    "youtubepot-bgutilscript": {
+        "server_home": os.path.join(
+            os.getcwd(),
+            "bgutil-ytdlp-pot-provider",
+            "server"
+        )
     }
+},
+    
 
    # if os.path.exists(cookie_path):
    #     opts["cookiefile"] = cookie_path
