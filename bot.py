@@ -83,9 +83,10 @@ async def search_and_download(query):
     opts = {
        "js_runtimes": {
     "deno": {
-        "executable": "/opt/render/.deno/bin/deno"
+       "path": "/opt/render/.deno/bin/deno"
     }
-},
+},"remote_components": {"ejs:npm"},
+        
         "extractor_args": {
             "youtube": {
                 "player_client": ["default", "web_embedded"],
