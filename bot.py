@@ -120,13 +120,13 @@ async def search_and_download(query):
                     "webpage"
                 ]
             }"youtubepot-bgutilscript": {
-    "server_home": os.path.join},
+   "youtubepot-bgutilscript": {
+    "server_home": os.path.join(
         os.getcwd(),
         "bgutil-ytdlp-pot-provider",
         "server"
     )
 },
-        }
     }
 
    # if os.path.exists(cookie_path):
