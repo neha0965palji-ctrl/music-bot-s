@@ -110,17 +110,7 @@ async def search_and_download(query):
             "ejs:npm"
         },
 
-        "extractor_args": {
-            "youtube": {
-               "player_client": [
-    "tv",
-    "web_safari"
-],
-                "player_skip": [
-                    "webpage"
-                ]
-            }"youtubepot-bgutilscript": {
-   "youtubepot-bgutilscript": {
+      "youtubepot-bgutilscript": {
     "server_home": os.path.join(
         os.getcwd(),
         "bgutil-ytdlp-pot-provider",
