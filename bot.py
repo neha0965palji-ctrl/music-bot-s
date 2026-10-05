@@ -99,7 +99,9 @@ async def search_and_download(query):
         ),
 
         "js_runtimes": {
-            "deno": {}
+          "deno": {
+    "path": "/opt/render/.deno/bin/deno"
+}
         },
 
         "remote_components": {
