@@ -80,22 +80,22 @@ async def search_and_download(query):
     if os.path.exists("/etc/secrets/cookies.txt"):
         shutil.copyfile("/etc/secrets/cookies.txt", cookie_path)
 
- opts = {
-    "verbose": True,
+opts = {
+        "verbose": True,
 
-    "js_runtimes": {
-        "deno": {}
-    },
+        "js_runtimes": {
+            "deno": {}
+        },
 
-    "remote_components": {"ejs:npm"},
+        "remote_components": {"ejs:npm"},
 
-    "extractor_args": {
-        "youtube": {
-            "player_client": ["default", "web_embedded"],
-            "player_skip": ["webpage"]
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["default", "web_embedded"],
+                "player_skip": ["webpage"]
+            }
         }
     }
-}
     if os.path.exists(cookie_path):
         opts["cookiefile"] = cookie_path
 
