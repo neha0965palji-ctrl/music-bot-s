@@ -1,4 +1,4 @@
-```python
+python
 import os
 import glob
 import threading
@@ -390,4 +390,4 @@ threading.Thread(
 call_py.start()
 
 app.run()
-```
+
