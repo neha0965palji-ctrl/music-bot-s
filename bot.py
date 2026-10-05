@@ -121,8 +121,8 @@ async def search_and_download(query):
         }
     }
 
-    if os.path.exists(cookie_path):
-        opts["cookiefile"] = cookie_path
+   # if os.path.exists(cookie_path):
+   #     opts["cookiefile"] = cookie_path
 
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(
