@@ -106,7 +106,7 @@ with yt_dlp.YoutubeDL(opts) as ydl:
     )
 
     if not info or not info.get("entries"):
-        return None
+    return None
 
     video = info["entries"][0]
     video_id = video["id"]
