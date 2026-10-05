@@ -101,7 +101,7 @@ async def search_and_download(query):
         "outtmpl": os.path.join(
             DOWNLOAD_DIR,
             "%(id)s.%(ext)s"
-        ),"cookiefile": cookie_path,
+        ),# "cookiefile": cookie_path,
         
 "js_runtimes": {
     "deno": {}
