@@ -6,3 +6,4 @@ yt-dlp-ejs
 yt-dlp-getpot-wpc
 tgcrypto
 python-dotenv
+ytmusicapi
