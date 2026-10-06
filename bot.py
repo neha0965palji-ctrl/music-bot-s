@@ -75,152 +75,102 @@ def cleanup_downloads():
             pass
 
 async def search_and_download(query):
-    import json
-    import urllib.parse
+    """Search YouTube Music and download the best audio stream directly."""
     import urllib.request
 
-    # Public Piped instances can go offline/change, so keep several fallbacks.
-    PIPED_APIS = [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.tokhmi.xyz",
-        "https://pipedapi.moomoo.me",
-        "https://pipedapi.syncpundit.io",
-        "https://api-piped.mha.fi",
-        "https://piped-api.garudalinux.org",
-        "https://pipedapi.rivo.lol",
-        "https://pipedapi.adminforge.de",
-    ]
+    try:
+        from ytmusicapi import YTMusic
+    except ImportError as e:
+        print(f"[PLAY] ytmusicapi missing: {e}")
+        return None
 
-    def get_json(url, timeout=20):
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Mozilla/5.0"}
+    try:
+        print(f"[PLAY] YouTube Music search: {query}")
+        ytm = YTMusic()
+
+        # Search official music catalogue first.
+        results = ytm.search(query, filter="songs", limit=5)
+        video = next(
+            (x for x in results if x.get("videoId") and x.get("isAvailable", True)),
+            None
         )
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
 
-    search_url = "/search?" + urllib.parse.urlencode({
-        "q": query,
-        "filter": "music"
-    })
-
-    # Try each instance all the way through search -> stream lookup.
-    for api in PIPED_APIS:
-        try:
-            print(f"[PLAY] Searching: {api} | {query}")
-
-            search_data = get_json(api + search_url)
-
-            if not search_data:
-                print(f"[PLAY] Empty search response: {api}")
-                continue
-
-            items = search_data.get("items", [])
-            print(f"[PLAY] Search results from {api}: {len(items)}")
-
+        # Fallback to normal videos if no song result is available.
+        if not video:
+            results = ytm.search(query, filter="videos", limit=5)
             video = next(
-                (item for item in items if item.get("type") == "stream"),
+                (x for x in results if x.get("videoId") and x.get("isAvailable", True)),
                 None
             )
 
-            if not video:
-                print(f"[PLAY] No stream result: {api}")
-                continue
+        if not video:
+            print("[PLAY] YouTube Music returned no playable result")
+            return None
 
-            video_url = video.get("url", "")
-            parsed = urllib.parse.urlparse(video_url)
-            video_id = urllib.parse.parse_qs(parsed.query).get(
-                "v", [None]
-            )[0]
+        video_id = video["videoId"]
+        title = video.get("title") or query
+        print(f"[PLAY] Found: {title} | {video_id}")
 
-            # Some Piped responses may provide the id directly.
-            if not video_id:
-                video_id = video.get("id")
+        # Fresh signature timestamp gives get_song() valid streaming URLs.
+        signature_timestamp = ytm.get_signatureTimestamp()
+        song_data = ytm.get_song(video_id, signature_timestamp)
 
-            if not video_id:
-                print(f"[PLAY] No video ID: {api}")
-                continue
+        playability = song_data.get("playabilityStatus", {})
+        print(f"[PLAY] Playability: {playability.get('status')}")
 
-            stream_url = f"{api}/streams/{video_id}"
-            print(f"[PLAY] Getting streams: {stream_url}")
+        streaming = song_data.get("streamingData", {})
+        formats = [
+            f for f in streaming.get("adaptiveFormats", [])
+            if f.get("url") and str(f.get("mimeType", "")).startswith("audio/")
+        ]
 
-            stream_data = get_json(stream_url)
+        if not formats:
+            print("[PLAY] No direct audio stream returned")
+            return None
 
-            audio_streams = stream_data.get("audioStreams", [])
-            print(
-                f"[PLAY] Audio streams from {api}: "
-                f"{len(audio_streams)}"
-            )
+        # Prefer the highest bitrate audio-only stream.
+        audio = max(formats, key=lambda f: f.get("bitrate", 0))
+        audio_url = audio["url"]
+        mime = audio.get("mimeType", "")
+        ext = ".m4a" if "mp4" in mime else ".webm"
 
-            if not audio_streams:
-                print(f"[PLAY] No audio streams: {api}")
-                continue
+        file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}{ext}")
+        print(f"[PLAY] Downloading audio... bitrate={audio.get('bitrate')}")
 
-            # Prefer the highest bitrate stream that has a URL.
-            audio_streams = sorted(
-                [x for x in audio_streams if x.get("url")],
-                key=lambda x: x.get("bitrate", 0),
-                reverse=True
-            )
+        req = urllib.request.Request(
+            audio_url,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "*/*",
+            },
+        )
 
-            if not audio_streams:
-                print(f"[PLAY] Audio URL missing: {api}")
-                continue
+        with urllib.request.urlopen(req, timeout=120) as response:
+            with open(file_path, "wb") as output:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    output.write(chunk)
 
-            audio = audio_streams[0]
-            audio_url = audio["url"]
+        if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+            print("[PLAY] Downloaded file is empty")
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+            return None
 
-            mime_type = audio.get("mimeType", "")
-            ext = ".webm" if "webm" in mime_type else ".m4a"
+        print(f"[PLAY] Download complete: {file_path}")
+        return {
+            "title": title,
+            "path": file_path,
+            "video_id": video_id,
+        }
 
-            file_path = os.path.join(
-                DOWNLOAD_DIR,
-                f"{video_id}{ext}"
-            )
-
-            print(f"[PLAY] Downloading audio from {api}...")
-
-            req = urllib.request.Request(
-                audio_url,
-                headers={"User-Agent": "Mozilla/5.0"}
-            )
-
-            with urllib.request.urlopen(req, timeout=90) as response:
-                with open(file_path, "wb") as output:
-                    while True:
-                        chunk = response.read(1024 * 1024)
-                        if not chunk:
-                            break
-                        output.write(chunk)
-
-            if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
-                print("[PLAY] Downloaded file is empty")
-                try:
-                    os.remove(file_path)
-                except Exception:
-                    pass
-                continue
-
-            title = video.get("title") or query
-
-            print(f"[PLAY] Download complete: {file_path}")
-
-            # Return a dict because the rest of the bot expects title + path.
-            return {
-                "title": title,
-                "path": file_path,
-                "video_id": video_id,
-            }
-
-        except Exception as e:
-            print(
-                f"[PLAY] API failed: {api} | "
-                f"{type(e).__name__}: {e}"
-            )
-            continue
-
-    print("[PLAY] All Piped instances failed")
-    return None
+    except Exception as e:
+        print(f"[PLAY] YouTube Music error: {type(e).__name__}: {e}")
+        return None
 
 
 async def play_song(chat_id, song):
