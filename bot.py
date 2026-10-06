@@ -104,14 +104,24 @@ async def search_and_download(query):
     search_data = None
     api_used = None
 
-    for api in PIPED_APIS:
-        try:
-            search_data = get_json(api + search_url)
-            if search_data and search_data.get("items"):
-                api_used = api
-                break
-        except Exception:
-            continue
+ for api in PIPED_APIS:
+    try:
+        print(f"[PLAY] Searching API: {api} | Query: {query}")
+        search_data = get_json(api + search_url)
+
+        print(
+            f"[PLAY] Search response: "
+            f"{len(search_data.get('items', [])) if search_data else 0} items"
+        )
+
+        if search_data and search_data.get("items"):
+            api_used = api
+            break
+
+    except Exception as e:
+        print(f"[PLAY] Search API failed: {api}")
+        print(f"[PLAY] Error: {type(e).__name__}: {e}")
+        continue
 
     if not search_data or not search_data.get("items"):
         return None
@@ -130,12 +140,20 @@ async def search_and_download(query):
 
     parsed = urllib.parse.urlparse(video_url)
     video_id = urllib.parse.parse_qs(parsed.query).get("v", [None])[0]
+try:
+    print(f"[PLAY] Getting streams for video: {video_id}")
+    print(f"[PLAY] Using API: {api_used}")
 
-    if not video_id:
-        return None
+    stream_data = get_json(
+        f"{api_used}/streams/{video_id}"
+    )
 
-    title = video.get("title", query)
+    print("[PLAY] Stream API response received")
 
+except Exception as e:
+    print("[PLAY] Stream API failed")
+    print(f"[PLAY] Error: {type(e).__name__}: {e}")
+    return None
     # Get audio streams
     stream_data = None
 
@@ -149,11 +167,13 @@ async def search_and_download(query):
     if not stream_data:
         return None
 
-    audio_streams = stream_data.get("audioStreams", [])
+  audio_streams = stream_data.get("audioStreams", [])
 
-    if not audio_streams:
-        return None
+print(f"[PLAY] Audio streams found: {len(audio_streams)}")
 
+if not audio_streams:
+    print(f"[PLAY] No audio streams for video ID: {video_id}")
+    return None
     # Prefer higher bitrate audio
     audio_streams = sorted(
         audio_streams,
