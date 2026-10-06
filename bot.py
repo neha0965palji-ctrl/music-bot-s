@@ -88,12 +88,12 @@ async def search_and_download(query):
     def get_json(url):
         req = urllib.request.Request(
             url,
-            headers={
-                "User-Agent": "Mozilla/5.0"
-            }
+            headers={"User-Agent": "Mozilla/5.0"}
         )
         with urllib.request.urlopen(req, timeout=20) as response:
-            return json.loads(response.read().decode("utf-8"))
+            return json.loads(
+                response.read().decode("utf-8")
+            )
 
     # Search video
     search_url = "/search?" + urllib.parse.urlencode({
@@ -101,34 +101,44 @@ async def search_and_download(query):
         "filter": "music"
     })
 
-search_data = None
-api_used = None
+    search_data = None
+    api_used = None
 
-for api in PIPED_APIS:
-    try:
-        print(f"[PLAY] Searching API: {api} | Query: {query}")
-        search_data = get_json(api + search_url)
+    for api in PIPED_APIS:
+        try:
+            print(f"[PLAY] Searching API: {api} | Query: {query}")
 
-        print(
-            f"[PLAY] Search response: "
-            f"{len(search_data.get('items', [])) if search_data else 0} items"
-        )
+            search_data = get_json(
+                api + search_url
+            )
 
-        if search_data and search_data.get("items"):
-            api_used = api
-            break
+            items = (
+                search_data.get("items", [])
+                if search_data
+                else []
+            )
 
-    except Exception as e:
-        print(f"[PLAY] Search API failed: {api}")
-        print(f"[PLAY] Search Error: {type(e).__name__}: {e}")
-        continue
+            print(
+                f"[PLAY] Search response: {len(items)} items"
+            )
+
+            if items:
+                api_used = api
+                break
+
+        except Exception as e:
+            print(
+                f"[PLAY] Search API failed: {api}"
+            )
+            print(
+                f"[PLAY] Error: {type(e).__name__}: {e}"
+            )
 
     if not search_data or not search_data.get("items"):
-        print(f"[PLAY] No search results for: {query}")
-        return None
-        return None
+        print("[PLAY] No search results")
         return None
 
+    # Find first stream
     video = None
 
     for item in search_data["items"]:
@@ -137,81 +147,101 @@ for api in PIPED_APIS:
             break
 
     if not video:
+        print("[PLAY] No stream found")
         return None
+
+    video_url = video.get("url", "")
+
     parsed = urllib.parse.urlparse(video_url)
-    video_id = urllib.parse.parse_qs(parsed.query).get("v", [None])[0]
-try:
-    print(f"[PLAY] Getting streams for video: {video_id}")
-    print(f"[PLAY] Using API: {api_used}")
 
-    stream_data = get_json(
-        f"{api_used}/streams/{video_id}"
-    )
+    video_id = urllib.parse.parse_qs(
+        parsed.query
+    ).get("v", [None])[0]
 
-    print("[PLAY] Stream API response received")
+    if not video_id:
+        print("[PLAY] No video ID found")
+        return None
 
-except Exception as e:
-    print("[PLAY] Stream API failed")
-    print(f"[PLAY] Error: {type(e).__name__}: {e}")
-    return None
-    # Get audio streams
+    # Get streams
     stream_data = None
 
     try:
-        stream_data = get_json(
+        stream_url = (
             f"{api_used}/streams/{video_id}"
         )
-    except Exception:
+
+        print(
+            f"[PLAY] Getting streams: {stream_url}"
+        )
+
+        stream_data = get_json(stream_url)
+
+    except Exception as e:
+        print(
+            f"[PLAY] Stream API error: "
+            f"{type(e).__name__}: {e}"
+        )
         return None
 
     if not stream_data:
+        print("[PLAY] Empty stream data")
         return None
 
-  audio_streams = stream_data.get("audioStreams", [])
+    audio_streams = stream_data.get(
+        "audioStreams",
+        []
+    )
 
-print(f"[PLAY] Audio streams found: {len(audio_streams)}")
+    print(
+        f"[PLAY] Audio streams: "
+        f"{len(audio_streams)}"
+    )
 
-if not audio_streams:
-    print(f"[PLAY] No audio streams for video ID: {video_id}")
-    return None
-    # Prefer higher bitrate audio
+    if not audio_streams:
+        print("[PLAY] No audio streams found")
+        return None
+
     audio_streams = sorted(
         audio_streams,
         key=lambda x: x.get("bitrate", 0),
         reverse=True
     )
 
-    audio = audio_streams[0]
-    audio_url = audio.get("url")
+    audio_url = audio_streams[0].get(
+        "url",
+        ""
+    )
 
     if not audio_url:
+        print("[PLAY] Audio URL missing")
         return None
 
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    # Download audio
+    os.makedirs(
+        DOWNLOAD_DIR,
+        exist_ok=True
+    )
 
-    mime = audio.get("mimeType", "")
+    mime_type = audio_streams[0].get(
+        "mimeType",
+        ""
+    )
 
-    if "webm" in mime:
+    if "webm" in mime_type:
         ext = ".webm"
     else:
         ext = ".m4a"
 
-    output_file = os.path.join(
+    file_path = os.path.join(
         DOWNLOAD_DIR,
-        f"{video_id}{ext}"
+        video_id + ext
     )
 
-    # Remove old files for this video
-    for old_file in os.listdir(DOWNLOAD_DIR):
-        if old_file.startswith(video_id + "."):
-            try:
-                os.remove(
-                    os.path.join(DOWNLOAD_DIR, old_file)
-                )
-            except Exception:
-                pass
-
     try:
+        print(
+            f"[PLAY] Downloading audio..."
+        )
+
         req = urllib.request.Request(
             audio_url,
             headers={
@@ -219,40 +249,37 @@ if not audio_streams:
             }
         )
 
-        with urllib.request.urlopen(req, timeout=60) as response:
-            with open(output_file, "wb") as f:
+        with urllib.request.urlopen(
+            req,
+            timeout=60
+        ) as response:
+            with open(
+                file_path,
+                "wb"
+            ) as output:
                 while True:
-                    chunk = response.read(1024 * 1024)
+                    chunk = response.read(
+                        1024 * 1024
+                    )
+
                     if not chunk:
                         break
-                    f.write(chunk)
 
-    except Exception:
-        return None
+                    output.write(chunk)
 
-    if not os.path.exists(output_file):
-        return None
-
-    if os.path.getsize(output_file) < 10000:
-        return None
-
-    return {
-        "title": title,
-        "audio": output_file,
-        "id": video_id
-    }
-
-async def play_song(chat_id, song):
-    current_song[chat_id] = song
-
-    await call_py.play(
-        chat_id,
-        MediaStream(
-            song["file"],
-            AudioQuality.HIGH
+        print(
+            f"[PLAY] Download complete: "
+            f"{file_path}"
         )
-    )
 
+        return file_path
+
+    except Exception as e:
+        print(
+            f"[PLAY] Download error: "
+            f"{type(e).__name__}: {e}"
+        )
+        return None
 
 @app.on_message(filters.command("start"))
 async def start(_, message):
