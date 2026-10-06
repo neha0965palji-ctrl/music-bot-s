@@ -102,9 +102,9 @@ async def search_and_download(query):
     })
 
 search_data = None
-api_used = None
+    api_used = None
 
-for api in PIPED_APIS:
+    for api in PIPED_APIS:
         try:
             print(f"[PLAY] Searching API: {api} | Query: {query}")
             search_data = get_json(api + search_url)
@@ -122,6 +122,7 @@ for api in PIPED_APIS:
             print(f"[PLAY] Search API failed: {api}")
             print(f"[PLAY] Error: {type(e).__name__}: {e}")
             continue
+
     if not search_data or not search_data.get("items"):
         return None
 
@@ -133,8 +134,7 @@ for api in PIPED_APIS:
             break
 
     if not video:
-        return None    video_url = video.get("url", "")
-
+        return None
     parsed = urllib.parse.urlparse(video_url)
     video_id = urllib.parse.parse_qs(parsed.query).get("v", [None])[0]
 try:
