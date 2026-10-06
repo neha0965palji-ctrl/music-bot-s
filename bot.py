@@ -102,7 +102,7 @@ async def search_and_download(query):
     })
 
 search_data = None
-    api_used = None
+api_used = None
 
     for api in PIPED_APIS:
         try:
