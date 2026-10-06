@@ -104,7 +104,7 @@ async def search_and_download(query):
     search_data = None
     api_used = None
 
- for api in PIPED_APIS:
+   for api in PIPED_APIS:
     try:
         print(f"[PLAY] Searching API: {api} | Query: {query}")
         search_data = get_json(api + search_url)
