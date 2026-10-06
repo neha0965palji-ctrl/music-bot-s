@@ -80,15 +80,18 @@ async def search_and_download(query):
     import urllib.request
 
     # Public Piped instances can go offline/change, so keep several fallbacks.
-    PIPED_APIS = [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.tokhmi.xyz",
-        "https://pipedapi.moomoo.me",
-        "https://pipedapi.syncpundit.io",
-        "https://api-piped.mha.fi",
-        "https://piped-api.garudalinux.org",
-        "https://pipedapi.rivo.lol",
-        "https://pipedapi.adminforge.de",
+  PIPED_APIS = [
+    "https://pipedapi.leptons.xyz",
+    "https://pipedapi.nosebs.ru",
+    "https://pipedapi-libre.kavin.rocks",
+    "https://piped-api.privacy.com.de",
+    "https://api.piped.yt",
+    "https://pipedapi.drgns.space",
+    "https://pipedapi.owo.si",
+    "https://pipedapi.ducks.party",
+    "https://piped-api.codespace.cz",
+    "https://pipedapi.reallyaweso.me",
+]
     ]
 
     def get_json(url, timeout=20):
