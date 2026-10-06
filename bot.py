@@ -1,5 +1,4 @@
 import os
-import glob
 import threading
 import requests
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -20,24 +19,35 @@ app = Client(
     "music_bot",
     api_id=API_ID,
     api_hash=API_HASH,
-    bot_token=BOT_TOKEN
+    bot_token=BOT_TOKEN,
 )
 
-user_app = Client(
-    "music_assistant",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    session_string=SESSION_STRING
-) if SESSION_STRING else Client(
-    "music_assistant",
-    api_id=API_ID,
-    api_hash=API_HASH
+user_app = (
+    Client(
+        "music_assistant",
+        api_id=API_ID,
+        api_hash=API_HASH,
+        session_string=SESSION_STRING,
+    )
+    if SESSION_STRING
+    else Client(
+        "music_assistant",
+        api_id=API_ID,
+        api_hash=API_HASH,
+    )
 )
 
 call_py = PyTgCalls(user_app)
 
 queues = {}
 current_song = {}
+
+# Audius has an open read-only API and a public stream endpoint.
+# We try the main API first and then the public discovery provider.
+AUDIUS_APIS = [
+    "https://api.audius.co/v1",
+    "https://discoveryprovider.audius.co/v1",
+]
 
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -56,66 +66,63 @@ def start_web_server():
     HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
 
-def cleanup_downloads():
-    os.makedirs("downloads", exist_ok=True)
-    for f in glob.glob("downloads/*"):
-        try:
-            os.remove(f)
-        except Exception:
-            pass
-
-
 def search_song(query):
-    """Search JioSaavn and return a direct audio URL."""
-    url = "https://saavn.dev/api/search/songs"
+    """Search Audius and return a stream URL for the selected track."""
+    last_error = None
 
-    print(f"[PLAY] Saavn search: {query}")
+    for api in AUDIUS_APIS:
+        try:
+            print(f"[PLAY] Audius search: {api} | {query}")
 
-    response = requests.get(
-        url,
-        params={"query": query, "limit": 10},
-        headers={"User-Agent": "Mozilla/5.0"},
-        timeout=20
-    )
-    response.raise_for_status()
+            response = requests.get(
+                f"{api}/tracks/search",
+                params={"query": query, "limit": 10},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=20,
+            )
+            response.raise_for_status()
+            data = response.json()
+            results = data.get("data") or []
 
-    data = response.json()
-    results = data.get("data", {}).get("results", [])
+            if not results:
+                continue
 
-    if not results:
-        raise RuntimeError("No song found")
+            # Prefer tracks that are actually streamable.
+            for item in results:
+                track_id = item.get("id")
+                if not track_id:
+                    continue
 
-    # Prefer a normal song result with a usable download URL.
-    song = None
-    audio_url = None
-
-    for item in results:
-        links = item.get("downloadUrl") or []
-        links = [x for x in links if x.get("url")]
-        if links:
-            song = item
-            audio_url = max(
-                links,
-                key=lambda x: int(
-                    str(x.get("quality", "0")).replace("kbps", "") or 0
+                title = item.get("title") or query
+                artist = (
+                    item.get("user", {}).get("name")
+                    or item.get("user", {}).get("handle")
+                    or "Unknown artist"
                 )
-            )["url"]
-            break
 
-    if not song or not audio_url:
-        raise RuntimeError("No playable audio URL")
+                stream_url = f"{api}/tracks/{track_id}/stream"
 
-    title = song.get("name") or query
-    artist = song.get("primaryArtists") or ""
+                # Do not download the audio locally. PyTgCalls/FFmpeg can
+                # consume the remote stream URL directly.
+                print(f"[PLAY] Found: {title} - {artist}")
+                print(f"[PLAY] Stream: {stream_url}")
 
-    print(f"[PLAY] Found: {title} - {artist}")
-    print("[PLAY] Direct audio stream ready")
+                return {
+                    "title": title,
+                    "artist": artist,
+                    "url": stream_url,
+                }
 
-    return {
-        "title": title,
-        "artist": artist,
-        "url": audio_url,
-    }
+        except Exception as e:
+            last_error = e
+            print(f"[PLAY] Audius API failed: {api} | {type(e).__name__}: {e}")
+
+    if last_error:
+        raise RuntimeError(
+            f"Audius search failed: {type(last_error).__name__}: {last_error}"
+        )
+
+    raise RuntimeError("Song Audius par nahi mila")
 
 
 async def play_song(chat_id, song):
@@ -123,8 +130,8 @@ async def play_song(chat_id, song):
         chat_id,
         MediaStream(
             song["url"],
-            video_flags=MediaStream.Flags.IGNORE
-        )
+            video_flags=MediaStream.Flags.IGNORE,
+        ),
     )
     current_song[chat_id] = song
 
@@ -149,12 +156,12 @@ async def play_music(_, message):
         return
 
     query = " ".join(message.command[1:])
+    chat_id = message.chat.id
 
     try:
         await message.reply_text(f"🔎 Searching: {query}")
 
         song = search_song(query)
-        chat_id = message.chat.id
 
         if chat_id in current_song:
             queues.setdefault(chat_id, []).append(song)
@@ -247,7 +254,8 @@ async def show_queue(_, message):
 
     await message.reply_text(
         "🎵 Queue:\n\n" + "\n".join(items)
-        if items else "📭 Queue empty."
+        if items
+        else "📭 Queue empty."
     )
 
 
@@ -256,12 +264,9 @@ async def ping(_, message):
     await message.reply_text("🏓 Pong!")
 
 
-print("🎵 Music Bot Starting...")
+print("🎵 Music Bot Starting with Audius...")
 
-threading.Thread(
-    target=start_web_server,
-    daemon=True
-).start()
+threading.Thread(target=start_web_server, daemon=True).start()
 
 call_py.start()
 app.run()
