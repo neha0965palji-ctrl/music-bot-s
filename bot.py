@@ -75,211 +75,170 @@ def cleanup_downloads():
             pass
 
 async def search_and_download(query):
-    import os
     import json
     import urllib.parse
     import urllib.request
 
+    # Public Piped instances can go offline/change, so keep several fallbacks.
     PIPED_APIS = [
         "https://pipedapi.kavin.rocks",
+        "https://pipedapi.tokhmi.xyz",
+        "https://pipedapi.moomoo.me",
+        "https://pipedapi.syncpundit.io",
+        "https://api-piped.mha.fi",
+        "https://piped-api.garudalinux.org",
+        "https://pipedapi.rivo.lol",
         "https://pipedapi.adminforge.de",
     ]
 
-    def get_json(url):
+    def get_json(url, timeout=20):
         req = urllib.request.Request(
             url,
             headers={"User-Agent": "Mozilla/5.0"}
         )
-        with urllib.request.urlopen(req, timeout=20) as response:
-            return json.loads(
-                response.read().decode("utf-8")
-            )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
 
-    # Search video
     search_url = "/search?" + urllib.parse.urlencode({
         "q": query,
         "filter": "music"
     })
 
-    search_data = None
-    api_used = None
-
+    # Try each instance all the way through search -> stream lookup.
     for api in PIPED_APIS:
         try:
-            print(f"[PLAY] Searching API: {api} | Query: {query}")
+            print(f"[PLAY] Searching: {api} | {query}")
 
-            search_data = get_json(
-                api + search_url
+            search_data = get_json(api + search_url)
+
+            if not search_data:
+                print(f"[PLAY] Empty search response: {api}")
+                continue
+
+            items = search_data.get("items", [])
+            print(f"[PLAY] Search results from {api}: {len(items)}")
+
+            video = next(
+                (item for item in items if item.get("type") == "stream"),
+                None
             )
 
-            items = (
-                search_data.get("items", [])
-                if search_data
-                else []
-            )
+            if not video:
+                print(f"[PLAY] No stream result: {api}")
+                continue
 
+            video_url = video.get("url", "")
+            parsed = urllib.parse.urlparse(video_url)
+            video_id = urllib.parse.parse_qs(parsed.query).get(
+                "v", [None]
+            )[0]
+
+            # Some Piped responses may provide the id directly.
+            if not video_id:
+                video_id = video.get("id")
+
+            if not video_id:
+                print(f"[PLAY] No video ID: {api}")
+                continue
+
+            stream_url = f"{api}/streams/{video_id}"
+            print(f"[PLAY] Getting streams: {stream_url}")
+
+            stream_data = get_json(stream_url)
+
+            audio_streams = stream_data.get("audioStreams", [])
             print(
-                f"[PLAY] Search response: {len(items)} items"
+                f"[PLAY] Audio streams from {api}: "
+                f"{len(audio_streams)}"
             )
 
-            if items:
-                api_used = api
-                break
+            if not audio_streams:
+                print(f"[PLAY] No audio streams: {api}")
+                continue
+
+            # Prefer the highest bitrate stream that has a URL.
+            audio_streams = sorted(
+                [x for x in audio_streams if x.get("url")],
+                key=lambda x: x.get("bitrate", 0),
+                reverse=True
+            )
+
+            if not audio_streams:
+                print(f"[PLAY] Audio URL missing: {api}")
+                continue
+
+            audio = audio_streams[0]
+            audio_url = audio["url"]
+
+            mime_type = audio.get("mimeType", "")
+            ext = ".webm" if "webm" in mime_type else ".m4a"
+
+            file_path = os.path.join(
+                DOWNLOAD_DIR,
+                f"{video_id}{ext}"
+            )
+
+            print(f"[PLAY] Downloading audio from {api}...")
+
+            req = urllib.request.Request(
+                audio_url,
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+
+            with urllib.request.urlopen(req, timeout=90) as response:
+                with open(file_path, "wb") as output:
+                    while True:
+                        chunk = response.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        output.write(chunk)
+
+            if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+                print("[PLAY] Downloaded file is empty")
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+                continue
+
+            title = video.get("title") or query
+
+            print(f"[PLAY] Download complete: {file_path}")
+
+            # Return a dict because the rest of the bot expects title + path.
+            return {
+                "title": title,
+                "path": file_path,
+                "video_id": video_id,
+            }
 
         except Exception as e:
             print(
-                f"[PLAY] Search API failed: {api}"
+                f"[PLAY] API failed: {api} | "
+                f"{type(e).__name__}: {e}"
             )
-            print(
-                f"[PLAY] Error: {type(e).__name__}: {e}"
-            )
+            continue
 
-    if not search_data or not search_data.get("items"):
-        print("[PLAY] No search results")
-        return None
+    print("[PLAY] All Piped instances failed")
+    return None
 
-    # Find first stream
-    video = None
 
-    for item in search_data["items"]:
-        if item.get("type") == "stream":
-            video = item
-            break
+async def play_song(chat_id, song):
+    """Start a downloaded audio file in the Telegram voice chat."""
+    file_path = song["path"]
 
-    if not video:
-        print("[PLAY] No stream found")
-        return None
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(file_path)
 
-    video_url = video.get("url", "")
-
-    parsed = urllib.parse.urlparse(video_url)
-
-    video_id = urllib.parse.parse_qs(
-        parsed.query
-    ).get("v", [None])[0]
-
-    if not video_id:
-        print("[PLAY] No video ID found")
-        return None
-
-    # Get streams
-    stream_data = None
-
-    try:
-        stream_url = (
-            f"{api_used}/streams/{video_id}"
+    await call_py.play(
+        chat_id,
+        MediaStream(
+            file_path,
+            video_flags=MediaStream.Flags.IGNORE
         )
-
-        print(
-            f"[PLAY] Getting streams: {stream_url}"
-        )
-
-        stream_data = get_json(stream_url)
-
-    except Exception as e:
-        print(
-            f"[PLAY] Stream API error: "
-            f"{type(e).__name__}: {e}"
-        )
-        return None
-
-    if not stream_data:
-        print("[PLAY] Empty stream data")
-        return None
-
-    audio_streams = stream_data.get(
-        "audioStreams",
-        []
     )
 
-    print(
-        f"[PLAY] Audio streams: "
-        f"{len(audio_streams)}"
-    )
-
-    if not audio_streams:
-        print("[PLAY] No audio streams found")
-        return None
-
-    audio_streams = sorted(
-        audio_streams,
-        key=lambda x: x.get("bitrate", 0),
-        reverse=True
-    )
-
-    audio_url = audio_streams[0].get(
-        "url",
-        ""
-    )
-
-    if not audio_url:
-        print("[PLAY] Audio URL missing")
-        return None
-
-    # Download audio
-    os.makedirs(
-        DOWNLOAD_DIR,
-        exist_ok=True
-    )
-
-    mime_type = audio_streams[0].get(
-        "mimeType",
-        ""
-    )
-
-    if "webm" in mime_type:
-        ext = ".webm"
-    else:
-        ext = ".m4a"
-
-    file_path = os.path.join(
-        DOWNLOAD_DIR,
-        video_id + ext
-    )
-
-    try:
-        print(
-            f"[PLAY] Downloading audio..."
-        )
-
-        req = urllib.request.Request(
-            audio_url,
-            headers={
-                "User-Agent": "Mozilla/5.0"
-            }
-        )
-
-        with urllib.request.urlopen(
-            req,
-            timeout=60
-        ) as response:
-            with open(
-                file_path,
-                "wb"
-            ) as output:
-                while True:
-                    chunk = response.read(
-                        1024 * 1024
-                    )
-
-                    if not chunk:
-                        break
-
-                    output.write(chunk)
-
-        print(
-            f"[PLAY] Download complete: "
-            f"{file_path}"
-        )
-
-        return file_path
-
-    except Exception as e:
-        print(
-            f"[PLAY] Download error: "
-            f"{type(e).__name__}: {e}"
-        )
-        return None
+    current_song[chat_id] = song
 
 @app.on_message(filters.command("start"))
 async def start(_, message):
