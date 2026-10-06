@@ -125,7 +125,7 @@ for api in PIPED_APIS:
     if not search_data or not search_data.get("items"):
         return None
 
-    video = None   
+    video = None
 
     for item in search_data["items"]:
         if item.get("type") == "stream":
@@ -133,9 +133,7 @@ for api in PIPED_APIS:
             break
 
     if not video:
-        return None
-
-    video_url = video.get("url", "")
+        return None    video_url = video.get("url", "")
 
     parsed = urllib.parse.urlparse(video_url)
     video_id = urllib.parse.parse_qs(parsed.query).get("v", [None])[0]
