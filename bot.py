@@ -107,21 +107,21 @@ api_used = None
 for api in PIPED_APIS:
     try:
         print(f"[PLAY] Searching API: {api} | Query: {query}")
-            search_data = get_json(api + search_url)
+        search_data = get_json(api + search_url)
 
-            print(
-                f"[PLAY] Search response: "
-                f"{len(search_data.get('items', [])) if search_data else 0} items"
-            )
+        print(
+            f"[PLAY] Search response: "
+            f"{len(search_data.get('items', [])) if search_data else 0} items"
+        )
 
-            if search_data and search_data.get("items"):
-                api_used = api
-                break
+        if search_data and search_data.get("items"):
+            api_used = api
+            break
 
-        except Exception as e:
-            print(f"[PLAY] Search API failed: {api}")
-            print(f"[PLAY] Error: {type(e).__name__}: {e}")
-            continue
+    except Exception as e:
+        print(f"[PLAY] Search API failed: {api}")
+        print(f"[PLAY] Search Error: {type(e).__name__}: {e}")
+        continue
 
     if not search_data or not search_data.get("items"):
         print(f"[PLAY] No search results for: {query}")
