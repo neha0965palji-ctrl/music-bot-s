@@ -122,11 +122,10 @@ for api in PIPED_APIS:
             print(f"[PLAY] Search API failed: {api}")
             print(f"[PLAY] Error: {type(e).__name__}: {e}")
             continue
-
-    if not search_data or not search_data.get("items"):
+if not search_data or not search_data.get("items"):
         return None
 
-    video = None    
+    video = None   
 
     for item in search_data["items"]:
         if item.get("type") == "stream":
