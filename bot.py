@@ -101,32 +101,32 @@ async def search_and_download(query):
         "filter": "music"
     })
 
-    search_data = None
+search_data = None
     api_used = None
 
-   for api in PIPED_APIS:
-    try:
-        print(f"[PLAY] Searching API: {api} | Query: {query}")
-        search_data = get_json(api + search_url)
+    for api in PIPED_APIS:
+        try:
+            print(f"[PLAY] Searching API: {api} | Query: {query}")
+            search_data = get_json(api + search_url)
 
-        print(
-            f"[PLAY] Search response: "
-            f"{len(search_data.get('items', [])) if search_data else 0} items"
-        )
+            print(
+                f"[PLAY] Search response: "
+                f"{len(search_data.get('items', [])) if search_data else 0} items"
+            )
 
-        if search_data and search_data.get("items"):
-            api_used = api
-            break
+            if search_data and search_data.get("items"):
+                api_used = api
+                break
 
-    except Exception as e:
-        print(f"[PLAY] Search API failed: {api}")
-        print(f"[PLAY] Error: {type(e).__name__}: {e}")
-        continue
+        except Exception as e:
+            print(f"[PLAY] Search API failed: {api}")
+            print(f"[PLAY] Error: {type(e).__name__}: {e}")
+            continue
 
     if not search_data or not search_data.get("items"):
         return None
 
-    video = None
+    video = None    
 
     for item in search_data["items"]:
         if item.get("type") == "stream":
