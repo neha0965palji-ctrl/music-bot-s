@@ -4,6 +4,7 @@ python-dotenv
 yt-dlp[default]
 yt-dlp-ejs
 yt-dlp-getpot-wpc==1.1.2
+nodriver==0.50.3
 tgcrypto
 ytmusicapi
 requests
