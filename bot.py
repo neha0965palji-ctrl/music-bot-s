@@ -53,6 +53,17 @@ YTDLP_BASE = {
     "skip_download": True,
     "extract_flat": False,
     "source_address": "0.0.0.0",
+
+    # YouTube PO Token support for Render/Docker.
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["mweb"],
+            "fetch_pot": "always",
+        },
+        "youtubepot-wpc": {
+            "browser_path": "/usr/bin/chromium",
+        },
+    },
 }
 
 def search_song(query):
@@ -293,7 +304,7 @@ async def ping(_, message):
     await message.reply_text("🏓 Pong!")
 
 
-print("🎵 Music Bot Starting with YouTube audio...")
+print("🎵 Music Bot Starting with YouTube audio + WPC PO Token...")
 
 threading.Thread(target=start_web_server, daemon=True).start()
 
