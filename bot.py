@@ -154,65 +154,6 @@ def start_web_server():
     HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
 
-def search_song(query):
-    """Search Audius and return a stream URL for the selected track."""
-    last_error = None
-
-    for api in AUDIUS_APIS:
-        try:
-            print(f"[PLAY] Audius search: {api} | {query}")
-
-            response = requests.get(
-                f"{api}/tracks/search",
-                params={"query": query, "limit": 10},
-                headers={"User-Agent": "Mozilla/5.0"},
-                timeout=20,
-            )
-            response.raise_for_status()
-            data = response.json()
-            results = data.get("data") or []
-
-            if not results:
-                continue
-
-            # Prefer tracks that are actually streamable.
-            for item in results:
-                track_id = item.get("id")
-                if not track_id:
-                    continue
-
-                title = item.get("title") or query
-                artist = (
-                    item.get("user", {}).get("name")
-                    or item.get("user", {}).get("handle")
-                    or "Unknown artist"
-                )
-
-                stream_url = f"{api}/tracks/{track_id}/stream"
-
-                # Do not download the audio locally. PyTgCalls/FFmpeg can
-                # consume the remote stream URL directly.
-                print(f"[PLAY] Found: {title} - {artist}")
-                print(f"[PLAY] Stream: {stream_url}")
-
-                return {
-                    "title": title,
-                    "artist": artist,
-                    "url": stream_url,
-                }
-
-        except Exception as e:
-            last_error = e
-            print(f"[PLAY] Audius API failed: {api} | {type(e).__name__}: {e}")
-
-    if last_error:
-        raise RuntimeError(
-            f"Audius search failed: {type(last_error).__name__}: {last_error}"
-        )
-
-    raise RuntimeError("Song Audius par nahi mila")
-
-
 async def play_song(chat_id, song):
     await call_py.play(
         chat_id,
