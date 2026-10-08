@@ -3,8 +3,7 @@ py-tgcalls==2.1.0
 python-dotenv
 yt-dlp[default]
 yt-dlp-ejs
-yt-dlp-getpot-wpc
+yt-dlp-getpot-wpc==1.1.2
 tgcrypto
-python-dotenv
 ytmusicapi
 requests
