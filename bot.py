@@ -1,6 +1,7 @@
 import os
 import threading
 import requests
+import yt_dlp
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from dotenv import load_dotenv
@@ -42,12 +43,99 @@ call_py = PyTgCalls(user_app)
 queues = {}
 current_song = {}
 
-# Audius has an open read-only API and a public stream endpoint.
-# We try the main API first and then the public discovery provider.
-AUDIUS_APIS = [
-    "https://api.audius.co/v1",
-    "https://discoveryprovider.audius.co/v1",
-]
+# YouTube audio search/extraction.
+# We use yt-dlp only to obtain a playable audio stream URL.
+# The audio is streamed to Telegram; it is not saved as a local music file.
+YTDLP_BASE = {
+    "quiet": True,
+    "no_warnings": True,
+    "noplaylist": True,
+    "skip_download": True,
+    "extract_flat": False,
+    "source_address": "0.0.0.0",
+}
+
+def search_song(query):
+    """Search YouTube and return a direct audio stream URL."""
+    print(f"[PLAY] YouTube search: {query}")
+
+    search_opts = {
+        **YTDLP_BASE,
+        "default_search": "ytsearch1",
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(search_opts) as ydl:
+            info = ydl.extract_info(f"ytsearch1:{query}", download=False)
+
+            entries = info.get("entries") or []
+            if not entries:
+                raise RuntimeError("YouTube par song nahi mila.")
+
+            video = entries[0]
+            video_url = video.get("webpage_url") or video.get("original_url")
+
+            if not video_url:
+                video_id = video.get("id")
+                if video_id:
+                    video_url = f"https://www.youtube.com/watch?v={video_id}"
+
+            if not video_url:
+                raise RuntimeError("YouTube video URL nahi mila.")
+
+        # Extract the final audio URL from the selected video.
+        stream_opts = {
+            **YTDLP_BASE,
+            "format": "bestaudio/best",
+        }
+
+        with yt_dlp.YoutubeDL(stream_opts) as ydl:
+            video = ydl.extract_info(video_url, download=False)
+
+            title = video.get("title") or query
+            artist = (
+                video.get("artist")
+                or video.get("uploader")
+                or video.get("channel")
+                or "Unknown artist"
+            )
+
+            # Prefer the requested audio-only format.
+            formats = video.get("formats") or []
+            audio_formats = [
+                f for f in formats
+                if f.get("url")
+                and f.get("acodec") not in (None, "none")
+                and f.get("vcodec") in (None, "none")
+            ]
+
+            if audio_formats:
+                audio_formats.sort(
+                    key=lambda f: (
+                        f.get("abr") or 0,
+                        f.get("asr") or 0
+                    ),
+                    reverse=True,
+                )
+                stream_url = audio_formats[0]["url"]
+            else:
+                stream_url = video.get("url")
+
+            if not stream_url:
+                raise RuntimeError("YouTube audio stream URL nahi mila.")
+
+            print(f"[PLAY] Found: {title} - {artist}")
+            return {
+                "title": title,
+                "artist": artist,
+                "url": stream_url,
+            }
+
+    except Exception as e:
+        print(f"[PLAY ERROR] YouTube extraction failed: {type(e).__name__}: {e}")
+        raise RuntimeError(
+            f"YouTube se song extract nahi hua: {type(e).__name__}: {e}"
+        )
 
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -264,7 +352,7 @@ async def ping(_, message):
     await message.reply_text("🏓 Pong!")
 
 
-print("🎵 Music Bot Starting with Audius...")
+print("🎵 Music Bot Starting with YouTube audio...")
 
 threading.Thread(target=start_web_server, daemon=True).start()
 
